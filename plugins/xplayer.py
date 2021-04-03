@@ -53,6 +53,7 @@ LOG = userge.getLogger(__name__)
 STREAM_LINK = re.compile(r"https?://[\S]+\.(?:m3u8?|audio|[a-z]{1,4}:[0-9]+)")
 FFMPEG_PROCESSES = {}
 MAX_DURATION = int(os.environ.get("VC_SONG_MAX_DURATION", 600))
+LOG.info(MAX_DURATION)
 SAVED_SETTINGS = get_collection("CONFIGS")
 
 
@@ -211,6 +212,7 @@ def convert_raw(audio_path: str, key: str = None) -> str:
 
 def check_audio(duration: int, audio_key: str, playlist: List) -> Optional[str]:
     # Duration
+    LOG.info(duration)
     if (invalid := (duration > MAX_DURATION or duration == 0)) :
         return f"Song Duration is {'invalid' if duration == 0 else 'too long'}"
     # check if already in Playlist
@@ -540,11 +542,13 @@ if userge.has_bot:
 async def join_voice_chat(m: Message, gc: XPlayer):
     """Join the voice chat."""
     try:
-        await gc.join()
+        if gc.is_connected:
+            await m.edit("Already in Voice Chat !", del_in=5)
+        else:
+            await gc.join()
+            await m.edit("**Joined** Voice Chat Successfully.", del_in=3)
     except RuntimeError:
         await m.err("No Voice Chat Found, start one first !")
-    else:
-        await m.edit("**Joined** Voice Chat Successfully.", del_in=3)
 
 
 @userge.on_cmd(
