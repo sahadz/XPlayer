@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Union
 import youtube_dl
 from pyrogram import filters
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from userge import Config, Message, pool, userge, get_collection
+from userge import Config, Message, get_collection, pool, userge
 from userge.plugins.bot.utube_inline import BASE_YT_URL, get_yt_video_id, get_ytthumb
 from userge.plugins.misc.upload import check_thumb
 from userge.plugins.tools.system import restart_ as restart_system
@@ -54,11 +54,16 @@ STREAM_LINK = re.compile(r"https?://[\S]+\.(?:m3u8?|audio|[a-z]{1,4}:[0-9]+)")
 FFMPEG_PROCESSES = {}
 MAX_DURATION = int(os.environ.get("MAX_DURATION", 600))
 SAVED_SETTINGS = get_collection("CONFIGS")
-VC_GROUP_MODE = bool((vc_g_mode := os.environ.get("VC_GROUP_MODE", "false")) and vc_g_mode.lower().strip() == "true")
+VC_GROUP_MODE = bool(
+    (vc_g_mode := os.environ.get("VC_GROUP_MODE", "false"))
+    and vc_g_mode.lower().strip() == "true"
+)
+
 
 async def _init() -> None:
     if vc_g_m := await SAVED_SETTINGS.find_one({"_id": "VC_GROUP_MODE"}):
-        VC_GROUP_MODE = vc_g_m["data"]
+        vc_g_m["data"]
+
 
 class XPlayer(GroupCall):
     def __init__(self, chat_id: int):
@@ -445,7 +450,9 @@ if userge.has_bot:
                     text += "`[ Empty ]`"
                 buttons = [[InlineKeyboardButton("Back", callback_data="vcbtn_player")]]
                 return await c_q.message.edit(
-                    text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True
+                    text,
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    disable_web_page_preview=True,
                 )
 
             if to_change == "pause":
@@ -514,7 +521,11 @@ if userge.has_bot:
                 buttons += back_btn
             else:
                 buttons = back_btn
-            await c_q.message.edit(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+            await c_q.message.edit(
+                text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                disable_web_page_preview=True,
+            )
 
 
 # <------------------------> COMMANDS <------------------------> #
@@ -577,7 +588,7 @@ async def skip_song_voice_chat(m: Message, gc: XPlayer):
         "usage": "{tr}playvc [reply to audio msg / Media group | song name | URL]",
         "examples": "{tr}playvc Beliver OR {tr}playvc [reply to audio file]",
     },
-    filter_me=VC_GROUP_MODE
+    filter_me=VC_GROUP_MODE,
 )
 @add_groupcall
 async def play_voice_chat(m: Message, gc: XPlayer):
@@ -707,7 +718,7 @@ async def append_playlist(gc: XPlayer, m: Message, media_grp: bool, **kwargs) ->
         "header": "Leave the fun.",
         "description": "Leave voice chat in current group.",
         "usage": "{tr}stopvc just use it.",
-        'flags': {"-all": "stop all active voice chats"},
+        "flags": {"-all": "stop all active voice chats"},
         "examples": "{tr}stopvc",
     },
 )
@@ -921,7 +932,9 @@ async def playlist(m: Message, gc: XPlayer):
 
 
 @userge.on_cmd(
-    "vcgroupmode", about={"header": "Allow group members to use playvc command without sudo"}, allow_channels=False
+    "vcgroupmode",
+    about={"header": "Allow group members to use playvc command without sudo"},
+    allow_channels=False,
 )
 async def vcgroupmode_(message: Message):
     """ enable / disable playvc for group members """
