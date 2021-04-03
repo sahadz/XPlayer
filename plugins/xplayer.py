@@ -56,7 +56,7 @@ FFMPEG_PROCESSES = {}
 
 class XPlayer(GroupCall):
     def __init__(self, chat_id: int):
-        self.replay_songs = False
+        self.replay_songs = True
         self.current_vol = 100
         self.is_active = False
         self.playlist = []
