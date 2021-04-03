@@ -54,15 +54,13 @@ STREAM_LINK = re.compile(r"https?://[\S]+\.(?:m3u8?|audio|[a-z]{1,4}:[0-9]+)")
 FFMPEG_PROCESSES = {}
 MAX_DURATION = int(os.environ.get("MAX_DURATION", 600))
 SAVED_SETTINGS = get_collection("CONFIGS")
-VC_GROUP_MODE = bool(
-    (vc_g_mode := os.environ.get("VC_GROUP_MODE", "false"))
-    and vc_g_mode.lower().strip() == "true"
-)
 
 
 async def _init() -> None:
     if vc_g_m := await SAVED_SETTINGS.find_one({"_id": "VC_GROUP_MODE"}):
-        vc_g_m["data"]
+        if not hasattr(Config, "VC_GROUP_MODE"):
+            setattr(Config, "VC_GROUP_MODE", False)
+        Config.VC_GROUP_MODE = vc_g_m["data"]
 
 
 class XPlayer(GroupCall):
@@ -588,7 +586,7 @@ async def skip_song_voice_chat(m: Message, gc: XPlayer):
         "usage": "{tr}playvc [reply to audio msg / Media group | song name | URL]",
         "examples": "{tr}playvc Beliver OR {tr}playvc [reply to audio file]",
     },
-    filter_me=VC_GROUP_MODE,
+    filter_me=Config.VC_GROUP_MODE,
 )
 @add_groupcall
 async def play_voice_chat(m: Message, gc: XPlayer):
@@ -938,11 +936,11 @@ async def playlist(m: Message, gc: XPlayer):
 )
 async def vcgroupmode_(message: Message):
     """ enable / disable playvc for group members """
-    if VC_GROUP_MODE:
+    if Config.VC_GROUP_MODE:
         await message.edit("`playvc enabled for owner and sudo users only`", del_in=3)
     else:
         await message.edit("`playvc enabled for everyone`", del_in=3)
-    VC_GROUP_MODE = not VC_GROUP_MODE
+    Config.VC_GROUP_MODE = not Config.VC_GROUP_MODE
     await SAVED_SETTINGS.update_one(
-        {"_id": "VC_GROUP_MODE"}, {"$set": {"data": VC_GROUP_MODE}}, upsert=True
+        {"_id": "VC_GROUP_MODE"}, {"$set": {"data": Config.VC_GROUP_MODE}}, upsert=True
     )
