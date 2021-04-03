@@ -52,7 +52,7 @@ from userge.utils import check_owner, rand_key, safe_filename
 LOG = userge.getLogger(__name__)
 STREAM_LINK = re.compile(r"https?://[\S]+\.(?:m3u8?|audio|[a-z]{1,4}:[0-9]+)")
 FFMPEG_PROCESSES = {}
-MAX_DURATION = int(os.environ.get("MAX_DURATION", 600))
+MAX_DURATION = int(os.environ.get("VC_SONG_MAX_DURATION", 600))
 SAVED_SETTINGS = get_collection("CONFIGS")
 
 
