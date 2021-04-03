@@ -57,7 +57,7 @@ SAVED_SETTINGS = get_collection("CONFIGS")
 VC_GROUP_MODE = bool((vc_g_mode := os.environ.get("VC_GROUP_MODE", "false")) and vc_g_mode.lower().strip() == "true")
 
 async def _init() -> None:
-    if vc_g_m := await SAVED_SETTINGS.find_one({"_id": "VC_GROUP_MODE"})
+    if vc_g_m := await SAVED_SETTINGS.find_one({"_id": "VC_GROUP_MODE"}):
         VC_GROUP_MODE = vc_g_m["data"]
 
 class XPlayer(GroupCall):
