@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Union
 import youtube_dl
 from pyrogram import filters
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from userge import Config, Message, pool, userge
+from userge import Config, Message, pool, userge, get_collection
 from userge.plugins.bot.utube_inline import BASE_YT_URL, get_yt_video_id, get_ytthumb
 from userge.plugins.misc.upload import check_thumb
 from userge.plugins.tools.system import restart_ as restart_system
@@ -52,13 +52,18 @@ from userge.utils import check_owner, rand_key, safe_filename
 LOG = userge.getLogger(__name__)
 STREAM_LINK = re.compile(r"https?://[\S]+\.(?:m3u8?|audio|[a-z]{1,4}:[0-9]+)")
 FFMPEG_PROCESSES = {}
+MAX_DURATION = int(os.environ.get("MAX_DURATION", 600))
+SAVED_SETTINGS = get_collection("CONFIGS")
+VC_GROUP_MODE = bool((vc_g_mode := os.environ.get("VC_GROUP_MODE", "false")) and vc_g_mode.lower().strip() == "true")
 
+async def _init() -> None:
+    if vc_g_m := await SAVED_SETTINGS.find_one({"_id": "VC_GROUP_MODE"})
+        VC_GROUP_MODE = vc_g_m["data"]
 
 class XPlayer(GroupCall):
     def __init__(self, chat_id: int):
         self.replay_songs = True
         self.current_vol = 100
-        self.is_active = False
         self.playlist = []
         self.chat_id = chat_id
         super().__init__(
@@ -95,10 +100,8 @@ def get_groupcall(chat_id: int) -> XPlayer:
 
 async def network_status_changed_handler(gc: XPlayer, is_connected: bool) -> None:
     if is_connected:
-        gc.is_active = True
         LOG.info(f"JOINED VC in {gc.chat_id}")
     else:
-        gc.is_active = False
         LOG.info(f"LEFT VC in {gc.chat_id}")
 
 
@@ -205,7 +208,7 @@ def convert_raw(audio_path: str, key: str = None) -> str:
 
 def check_audio(duration: int, audio_key: str, playlist: List) -> Optional[str]:
     # Duration
-    if (invalid := (duration > 600 or duration == 0)) :
+    if (invalid := (duration > MAX_DURATION or duration == 0)) :
         return f"Song Duration is {'invalid' if duration == 0 else 'too long'}"
     # check if already in Playlist
     if playlist and (audio_key in [x["id"] for x in playlist]):
@@ -442,7 +445,7 @@ if userge.has_bot:
                     text += "`[ Empty ]`"
                 buttons = [[InlineKeyboardButton("Back", callback_data="vcbtn_player")]]
                 return await c_q.message.edit(
-                    text, reply_markup=InlineKeyboardMarkup(buttons)
+                    text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True
                 )
 
             if to_change == "pause":
@@ -511,7 +514,7 @@ if userge.has_bot:
                 buttons += back_btn
             else:
                 buttons = back_btn
-            await c_q.message.edit(text, reply_markup=InlineKeyboardMarkup(buttons))
+            await c_q.message.edit(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
 
 
 # <------------------------> COMMANDS <------------------------> #
@@ -574,6 +577,7 @@ async def skip_song_voice_chat(m: Message, gc: XPlayer):
         "usage": "{tr}playvc [reply to audio msg / Media group | song name | URL]",
         "examples": "{tr}playvc Beliver OR {tr}playvc [reply to audio file]",
     },
+    filter_me=VC_GROUP_MODE
 )
 @add_groupcall
 async def play_voice_chat(m: Message, gc: XPlayer):
@@ -703,6 +707,7 @@ async def append_playlist(gc: XPlayer, m: Message, media_grp: bool, **kwargs) ->
         "header": "Leave the fun.",
         "description": "Leave voice chat in current group.",
         "usage": "{tr}stopvc just use it.",
+        'flags': {"-all": "stop all active voice chats"},
         "examples": "{tr}stopvc",
     },
 )
@@ -716,13 +721,14 @@ async def stop_voice_chat(m: Message, gc: XPlayer):
         if chat_ids:
             kill_list += [kill_radio(rid) for rid in chat_ids]
         if vc_chats:
-            kill_list += [i.leave() for i in vc_chats.values() if i.is_active]
+            kill_list += [i.leave() for i in vc_chats.values() if i.is_connected]
         if kill_list:
             await asyncio.gather(*kill_list)
     else:
         await m.edit("Sending signal.SIGTERM...")
         await kill_radio(m.chat.id)
-        await gc.leave()
+        if gc.is_connected:
+            await gc.leave()
     await m.edit("Stopped Successfully.")
 
 
@@ -911,4 +917,19 @@ async def playlist(m: Message, gc: XPlayer):
         )
     else:
         text += "`[ Empty ]`"
-    await m.edit(text, disable_web_page_preview=True)
+    await m.edit_or_send_as_file(text, disable_web_page_preview=True)
+
+
+@userge.on_cmd(
+    "vcgroupmode", about={"header": "Allow group members to use playvc command without sudo"}, allow_channels=False
+)
+async def vcgroupmode_(message: Message):
+    """ enable / disable playvc for group members """
+    if VC_GROUP_MODE:
+        await message.edit("`playvc enabled for owner and sudo users only`", del_in=3)
+    else:
+        await message.edit("`playvc enabled for everyone`", del_in=3)
+    VC_GROUP_MODE = not VC_GROUP_MODE
+    await SAVED_SETTINGS.update_one(
+        {"_id": "VC_GROUP_MODE"}, {"$set": {"data": VC_GROUP_MODE}}, upsert=True
+    )
